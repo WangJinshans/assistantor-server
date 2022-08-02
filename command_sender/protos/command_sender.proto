@@ -1,0 +1,46 @@
+syntax = "proto3";
+package command_sender;
+option go_package = "./;command_sender";
+
+// Send parameter
+message SendParameter {
+  string vin = 1;
+  int64 timestamp = 2;
+  bytes command = 3; // 命令由调用端生成
+  bytes extra = 4; // 附加信息
+}
+
+// Send parameter
+message BatchSendParameter {
+  repeated SendParameter parameters = 1;
+}
+
+// Send result
+message SendResult {
+  bool success = 1;
+  string error_message = 2;
+}
+
+service Send {
+  rpc SendCommand(SendParameter) returns (SendResult) {}
+}
+
+
+// Query parameter
+message QueryParameter {
+  // id format: vin + hex(time)
+  string id = 1;
+}
+
+// Query result
+message QueryResult {
+  string state = 1;
+  bytes command_content = 2;
+  uint64 send_time = 3;
+  string send_host = 4;
+}
+
+// Query service
+service Query {
+  rpc QueryProgress(QueryParameter) returns (QueryResult) {}
+}

@@ -1,0 +1,44 @@
+syntax = "proto3";
+package connection_manager;
+option go_package = "./;connection_manager";
+
+// 查询vin所在pod
+message QueryConnectionParameter {
+  string id = 1;
+}
+
+// 查询host所有connection
+message QueryConnectionsParameter {
+  string host = 1;
+}
+
+message Connection {
+  string id = 1;
+  string last_updated = 2;
+  string host = 3;
+  string address = 4;
+}
+
+message Connections {
+  repeated Connection connections = 1;
+}
+
+message HostInfo {
+  string host_name = 1;
+  string host_address = 2;
+}
+
+message HostInfoList {
+  repeated HostInfo host_list = 1;
+}
+
+message Empty {
+
+}
+
+service Query {
+  rpc QueryHosts(Empty) returns (HostInfoList) {}
+  rpc QueryConnection (QueryConnectionParameter) returns (Connection) {}
+  rpc QueryAllConnections (Empty) returns (Connections) {}
+  rpc QueryConnectionsByHost (QueryConnectionsParameter) returns (Connections) {}
+}
