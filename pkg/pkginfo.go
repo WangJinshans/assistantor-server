@@ -7,34 +7,6 @@ type Package interface {
 	Payload() []byte
 }
 
-// GB32960Package for protocol gb32960
-type GB32960Package struct {
-	start         []byte
-	commandFlag   byte
-	answerFlag    byte
-	uniqueCode    []byte
-	encryptMethod byte
-	payloadLength int
-	payload       []byte
-	checkSum      byte
-
-	rawData []byte
-}
-
-// CommandFlag of gb32960 package
-func (p GB32960Package) CommandFlag() byte {
-	return p.rawData[2]
-}
-
-// UniqueCode of gb32960 package
-func (p GB32960Package) UniqueCode() []byte {
-	return p.rawData[4:21]
-}
-
-// Payload of gb32960 package
-func (p GB32960Package) Payload() []byte {
-	return p.rawData[24 : len(p.rawData)-1]
-}
 
 // GB17691Package for protocol gb32960
 type GB17691Package struct {

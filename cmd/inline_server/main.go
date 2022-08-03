@@ -565,7 +565,7 @@ func messageReceived(c *network.Connection, segment []byte) {
 	if len(c.ResidueBytes) > 0 {
 		segment = append(c.ResidueBytes, segment...)
 	}
-	messages, residueBytes, invalidMessages := gateway.Split(segment)
+	messages, residueBytes, invalidMessages := gateway.SplitMessage(segment)
 	c.ResidueBytes = residueBytes
 	for _, message := range messages {
 		p, err := pkg.DeconstractPackage(message, protocol)
@@ -573,9 +573,8 @@ func messageReceived(c *network.Connection, segment []byte) {
 			log.Error().Msgf("error: %v", err)
 		}
 
-		// check vin
 		vin := string(p.UniqueCode())
-		err = pkg.VerifyVINascii(p.UniqueCode())
+		err = pkg.VerifyUid(p.UniqueCode())
 		if err != nil {
 			errorMsg := gateway.FormatErrorMsg("gateway", fmt.Sprintf("%x", message), "", "invaild vin")
 			err = gateway.ProduceWithKey(producer, errorTopic, errorMsg, []byte{0})
@@ -596,17 +595,7 @@ func messageReceived(c *network.Connection, segment []byte) {
 			enqueuedPackages.Observe(1)
 		}
 
-		//generate response to the package which does not depend on the business
-		response := gateway.QuickResponse(p)
-		if response != nil {
-			err = c.Send(response)
-			if err != nil {
-				log.Error().Msgf("send back error: %v", err)
-			}
-			downstreamBytes.Observe(float64(len(response)))
-		}
-
-		if vin != pkg.PlaceholderVIN && vin != "" {
+		if vin != pkg.DefaultUid && vin != "" {
 			if c.IsFirstMessage {
 				c.IsFirstMessage = false
 				c.Server.OnConnectionMade(c, vin)
