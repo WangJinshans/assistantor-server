@@ -1,6 +1,6 @@
-module github.com/BurnishCN/gateway-go
+module github.com/imserver/gateway-go
 
-go 1.14
+go 1.16
 
 require (
 	github.com/armon/go-metrics v0.3.3 // indirect

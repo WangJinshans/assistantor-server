@@ -24,6 +24,8 @@ func NewKafkaProducer(kafkaBrokers []string) (producer *confluentKafka.Producer,
 		"compression.type":             "snappy",
 		"retries":                      20,
 		"retry.backoff.ms":             1000,
+		//"message.max.bytes":            3000000, // message.max.bytes 作用于全局,慎用
+		"batch.size": 1000000,
 	})
 	if err != nil {
 		panic(err)

@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	"github.com/BurnishCN/gateway-go/pkg"
+	"github.com/imserver/gateway-go/pkg"
 	"github.com/rs/zerolog/log"
 	"net"
 	"sync"
