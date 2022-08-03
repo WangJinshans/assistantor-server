@@ -21,7 +21,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	confluentKafka "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
-	"io/ioutil"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -39,12 +38,6 @@ const (
 	HealthyCheckPort = 9111 // consul 健康检查端口
 )
 
-type consulKV struct {
-	Key   string `json:"key"`
-	Flags int    `json:"flags"`
-	Value string `json:"value"`
-}
-
 type LogHook struct{}
 
 func (hook LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
@@ -54,15 +47,7 @@ func (hook LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 }
 
 var (
-	old7e = []byte{0x7e}
-	new7e = []byte{0x7d, 0x02}
-	old7d = []byte{0x7d}
-	new7d = []byte{0x7d, 0x01}
-)
-
-var (
 	logLevel         string
-	platForm         string // 平台
 	protocol         string // protocol
 	consulAddr       string // consul
 	enableMonitoring bool
@@ -189,7 +174,6 @@ func readConfigFromFile() {
 
 	enableMonitoring = viper.GetBool("enableMonitoring")
 	logLevel = viper.GetString("logLevel")
-	platForm = viper.GetString("platForm")
 	switch logLevel {
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -209,38 +193,6 @@ func readConfigFromFile() {
 	}
 }
 
-//func initConsulClient() {
-//	consul.SetEnv(env)
-//	consul.SetApp(app)
-//	consul.InitConsul(consulAddr)
-//}
-//
-//func readConfigFromConsul() {
-//	// kafka
-//	kafkaBrokers = consul.GetStringSlice("kafka.brokerUrls")
-//	kafkaSecurityProtocol = consul.GetString("kafka.securityProtocol")
-//	normalTopic = consul.GetString("kafka.normalTopic")
-//	errorTopic = consul.GetString("kafka.errorTopic")
-//
-//	// redis
-//	redisHost = consul.GetString("redis.host")
-//	redisPort = consul.GetInt("redis.port")
-//	redisPassword = consul.GetString("redis.password")
-//	redisDB = consul.GetInt("redis.db")
-//	redisReadTimeout = consul.GetInt("redis.readTimeout")
-//
-//	socketTimeout = consul.GetInt("socketTimeout")
-//
-//	protocol = consul.GetString("protocol")
-//
-//	enableLogLine = consul.GetBool("enableLogLine")
-//	logLevel = consul.GetString("logLevel")
-//
-//	enableMonitoring = consul.GetBool("enableMonitoring")
-//	enableConnReport = consul.GetBool("enableConnReport")
-//}
-
-// 注册到consul
 func registerService() (err error) {
 
 	// 创建注册到consul的服务到
@@ -265,35 +217,6 @@ func registerService() (err error) {
 	err = consulClient.Agent().ServiceRegister(registration)
 	return
 }
-
-func initConsulKV(env, app string) {
-	prefix := env + "/" + app + "/"
-	kvList := []consulKV{
-		{Key: env + "/"},
-		{Key: prefix},
-		{Key: prefix + "kafka.brokerUrls"},
-		{Key: prefix + "kafka.securityProtocol"},
-		{Key: prefix + "kafka.normalTopic"},
-		{Key: prefix + "kafka.errorTopic"},
-		{Key: prefix + "redis.host"},
-		{Key: prefix + "redis.port"},
-		{Key: prefix + "redis.password"},
-		{Key: prefix + "redis.db"},
-		{Key: prefix + "redis.readTimeout"},
-		{Key: prefix + "socketTimeout"},
-		{Key: prefix + "protocol"},
-		{Key: prefix + "logLevel"},
-		{Key: prefix + "enableLogLine"},
-		{Key: prefix + "enableMonitoring"},
-		{Key: prefix + "enableConnReport"},
-	}
-
-	// serialize
-	res1B, _ := json.Marshal(kvList)
-	ioutil.WriteFile("kv.json", res1B, 0644)
-}
-
-// ===========================================================================================
 
 func main() {
 
@@ -522,9 +445,9 @@ func startCheckServer() {
 }
 
 // 登录登出事件
-func CommitEvent(vin string, eventType int) {
+func CommitEvent(uid string, eventType int) {
 	dataMap := make(map[string]interface{})
-	dataMap["vin"] = vin
+	dataMap["uid"] = uid
 	dataMap["eventType"] = eventType
 	dataMap["timestamp"] = time.Now().Unix()
 	bs, err := json.Marshal(dataMap)
@@ -540,22 +463,22 @@ func CommitEvent(vin string, eventType int) {
 	}
 }
 
-func connectionMade(c *network.Connection, vin string) {
-	log.Info().Msgf("Receive new connection from %v, vin: %s", c.RemoteAddr(), vin)
-	c.SetID(vin) // 设置当前连接Id
+func connectionMade(c *network.Connection, uid string) {
+	log.Info().Msgf("Receive new connection from %v, uid: %s", c.RemoteAddr(), uid)
+	c.SetID(uid) // 设置当前连接Id
 	// 更新redis 连接状态
 	dataSet := make(map[string]interface{})
 
 	hostKey := fmt.Sprintf("%s_%s", common.ConnectionHostKey, host)
-	redisClient.LPush(hostKey, vin)
+	redisClient.LPush(hostKey, uid)
 
-	dataSet["vin"] = vin
+	dataSet["uid"] = uid
 	dataSet["host"] = host
 	dataSet["address"] = hostAddress
 	dataSet["last_updated"] = time.Now().Unix()
-	vinKey := fmt.Sprintf("%s_%s", common.ConnectionKey, vin)
-	redisClient.HMSet(vinKey, dataSet)
-	redisClient.ExpireAt(vinKey, time.Now().Add(time.Duration(socketTimeout)*time.Second))
+	uidKey := fmt.Sprintf("%s_%s", common.ConnectionKey, uid)
+	redisClient.HMSet(uidKey, dataSet)
+	redisClient.ExpireAt(uidKey, time.Now().Add(time.Duration(socketTimeout)*time.Second))
 	connectionCount.Inc()
 }
 
@@ -568,20 +491,20 @@ func messageReceived(c *network.Connection, segment []byte) {
 	messages, residueBytes, invalidMessages := gateway.SplitMessage(segment)
 	c.ResidueBytes = residueBytes
 	for _, message := range messages {
-		p, err := pkg.DeconstractPackage(message, protocol)
+		p, err := pkg.DecodePackage(message, protocol)
 		if err != nil {
 			log.Error().Msgf("error: %v", err)
 		}
 
-		vin := string(p.UniqueCode())
+		uid := string(p.UniqueCode())
 		err = pkg.VerifyUid(p.UniqueCode())
 		if err != nil {
-			errorMsg := gateway.FormatErrorMsg("gateway", fmt.Sprintf("%x", message), "", "invaild vin")
+			errorMsg := gateway.FormatErrorMsg("gateway", fmt.Sprintf("%x", message), "", "invaild uid")
 			err = gateway.ProduceWithKey(producer, errorTopic, errorMsg, []byte{0})
 			if err != nil {
 				log.Error().Msgf("error: %v, queue size: %v", err, producer.Len())
 			} else {
-				log.Info().Msgf("topic %s: vin: %s %x", errorTopic, vin, message)
+				log.Info().Msgf("topic %s: uid: %s %x", errorTopic, uid, message)
 				enqueuedPackages.Observe(1)
 			}
 			continue
@@ -591,14 +514,14 @@ func messageReceived(c *network.Connection, segment []byte) {
 		if err != nil {
 			log.Error().Msgf("error: %v, queue size: %v", err, producer.Len())
 		} else {
-			log.Info().Msgf("topic %s: vin: %s %x", normalTopic, vin, message)
+			log.Info().Msgf("topic %s: uid: %s %x", normalTopic, uid, message)
 			enqueuedPackages.Observe(1)
 		}
 
-		if vin != pkg.DefaultUid && vin != "" {
+		if uid != pkg.DefaultUid && uid != "" {
 			if c.IsFirstMessage {
 				c.IsFirstMessage = false
-				c.Server.OnConnectionMade(c, vin)
+				c.Server.OnConnectionMade(c, uid)
 			} else {
 				nativeServer.ConnectionChan <- c
 			}
@@ -621,15 +544,15 @@ func messageReceived(c *network.Connection, segment []byte) {
 }
 
 func connectionLost(c *network.Connection, err error) {
-	log.Info().Msgf("Connection lost with client %v, vin: %s, err: %v", c.RemoteAddr(), c.GetID(), err)
+	log.Info().Msgf("Connection lost with client %v, uid: %s, err: %v", c.RemoteAddr(), c.GetID(), err)
 	// 从redis中删除
-	vin := c.GetID()
-	if vin != "" {
-		vinKey := fmt.Sprintf("%s_%s", common.ConnectionKey, vin)
-		redisClient.Del(vinKey)
+	uid := c.GetID()
+	if uid != "" {
+		uidKey := fmt.Sprintf("%s_%s", common.ConnectionKey, uid)
+		redisClient.Del(uidKey)
 
 		hostKey := fmt.Sprintf("%s_%s", common.ConnectionHostKey, host)
-		redisClient.LRem(hostKey, 0, vin) // 移除列表中所有与vin相等的值
+		redisClient.LRem(hostKey, 0, uid) // 移除列表中所有与uid相等的值
 	}
 	connectionCount.Dec()
 }

@@ -44,7 +44,4 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/confluentinc/confluent-kafka-go.v1 v1.1.0
 	gopkg.in/yaml.v2 v2.3.0 // indirect
-	gotest.tools v2.2.0+incompatible
 )
-
-// replace github.com/BurnishCN/general-go => ../general-go

@@ -1,39 +1,31 @@
 package pkg
 
-// Package is general interface for package
-type Package interface {
+type IMPackage interface {
 	CommandFlag() byte
 	UniqueCode() []byte
 	Payload() []byte
 }
 
-
-// GB17691Package for protocol gb32960
-type GB17691Package struct {
+type IMessagePackage struct {
 	rawData []byte
 }
 
-// CommandFlag of gb17691 package
-func (p GB17691Package) CommandFlag() byte {
-	return p.rawData[2]
+func (p IMessagePackage) CommandFlag() byte {
+	return p.rawData[4]
 }
 
-// UniqueCode of gb17691 package
-func (p GB17691Package) UniqueCode() []byte {
-	return p.rawData[3:20]
+func (p IMessagePackage) UniqueCode() []byte {
+	return p.rawData[5:22]
 }
 
-// Payload of gb17691 package
-func (p GB17691Package) Payload() []byte {
-	return p.rawData[24 : len(p.rawData)-1]
+func (p IMessagePackage) Payload() []byte {
+	return p.rawData[26 : len(p.rawData)-3]
 }
 
-
-// DeconstractPackage parse byte slice package to package struct
-func DeconstractPackage(message []byte, protocol string) (p Package, err error) {
+func DecodePackage(message []byte, protocol string) (p IMPackage, err error) {
 	switch protocol {
 	default:
-		p = GB17691Package{
+		p = IMessagePackage{
 			rawData: message,
 		}
 	}

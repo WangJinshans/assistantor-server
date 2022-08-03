@@ -18,7 +18,7 @@ type EpollConnection struct {
 	rwLock        sync.RWMutex
 	messageCh     chan []byte
 	working       bool
-	vin           string  // 存储避免遍历
+	uid           string // 存储避免遍历
 	//stopped chan struct{}
 }
 
@@ -93,23 +93,23 @@ func (s *EpollServer) RegisterCallbacks(onConnectionMade func(c *EpollConnection
 }
 
 func (s *EpollServer) FeedConnectMap(c *EpollConnection) {
-	vin := c.vin
-	if vin == "" {
+	uid := c.uid
+	if uid == "" {
 		return
 	}
 	s.rwLock.Lock()
 	defer s.rwLock.Unlock()
-	s.ConnectionMap[vin] = c
+	s.ConnectionMap[uid] = c
 }
 
 func (s *EpollServer) RemoveConnection(c *EpollConnection) {
-	vin := c.vin
-	if vin == "" {
+	uid := c.uid
+	if uid == "" {
 		return
 	}
 	s.rwLock.Lock()
 	defer s.rwLock.Unlock()
-	delete(s.ConnectionMap, vin) // 删除连接
+	delete(s.ConnectionMap, uid) // 删除连接
 }
 
 func (s *EpollServer) onConnectionClosed(c *EpollConnection) {
@@ -117,7 +117,7 @@ func (s *EpollServer) onConnectionClosed(c *EpollConnection) {
 	if len(c.ResidueBytes) == 0 {
 		return
 	}
-	messages, _, _ := Split(c.ResidueBytes)
+	messages, _, _ := SplitMessage(c.ResidueBytes)
 	for _, m := range messages {
 		err := Produce(globalProducer, globalTopic, m)
 		if err != nil {
@@ -233,8 +233,7 @@ func (c *EpollConnection) ParseMessage(segment []byte) {
 	if len(c.ResidueBytes) > 0 {
 		segment = append(c.GetResidueBytes(), segment...)
 	}
-	messages, residueBytes, invalidMessages := Split(segment)
-	//SData := split(segment)
+	messages, residueBytes, invalidMessages := SplitMessage(segment)
 	if len(residueBytes) > 0 {
 		c.AppendResidueBytes(residueBytes)
 	}
@@ -250,29 +249,29 @@ func (c *EpollConnection) ParseMessage(segment []byte) {
 	}
 
 	for _, message := range messages {
-		p, err := pkg.DeconstractPackage(message, protocol)
+		p, err := pkg.DecodePackage(message, protocol)
 		if err != nil {
 			log.Error().Msgf("error: %v", err)
 		}
 
-		vin := string(p.UniqueCode())
-		err = pkg.VerifyVINascii(p.UniqueCode())
+		uid := string(p.UniqueCode())
+		err = pkg.VerifyUid(p.UniqueCode())
 		if err != nil {
 			// 错误消息
 			err = Produce(globalProducer, errorTopic, message)
 			if err != nil {
 				log.Error().Msgf("err: %v, queue size: %v", err, globalProducer.Len())
 			}
-			log.Info().Msgf("topic %s: vin: %s %x", errorTopic, vin, message)
+			log.Info().Msgf("topic %s: uid: %s %x", errorTopic, uid, message)
 			continue
 		}
-		c.vin = vin // 建立连接到vin的对应
+		c.uid = uid // 建立连接到uid的对应
 		c.Server.FeedConnectMap(c)
 		err = Produce(globalProducer, globalTopic, message)
 		if err != nil {
 			log.Error().Msgf("err: %v, queue size: %v", err, globalProducer.Len())
 		} else {
-			log.Info().Msgf("topic %s: vin: %s %x", globalTopic, vin, message)
+			log.Info().Msgf("topic %s: uid: %s %x", globalTopic, uid, message)
 			verifySuccess.Inc()
 		}
 	}
