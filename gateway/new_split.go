@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"github.com/BurnishCN/gateway-go/global"
-
 	"github.com/BurnishCN/gateway-go/pkg"
 	"github.com/rs/zerolog/log"
 )
@@ -33,11 +31,7 @@ func checkBCC(bs []byte) error {
 // and has reached the optimal speed and accuracy.
 func Split(segment []byte) (messages [][]byte, residueBytes []byte, invalidMessages [][]byte) {
 	var startFlag []byte
-	if global.Protocol == pkg.ProtocolHJ {
-		startFlag = hjStartFlag
-	} else {
-		startFlag = gb17691StartFlag
-	}
+	startFlag = gb17691StartFlag
 	var invalidBuf bytes.Buffer
 
 	maybeFakeFlag := false

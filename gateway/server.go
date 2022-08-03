@@ -103,7 +103,6 @@ func Serve(config GatewayServerConfig) {
 
 	// monitoring kafka messages
 	// go monitorProducer(config.Producer)
-	go monitorProducer(globalProducer)
 	go StartEpollCommandServer(10010, server, config.RedisClient)
 	log.Info().Msgf("gateway serve at %s", addr)
 	server.Listen()

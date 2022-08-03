@@ -25,9 +25,5 @@ const (
 
 	PlaceholderVIN = "00000000000000000"
 
-	ProtocolGB32960  = "gb32960"
-	ProtocolGB17691  = "gb17691"
-	ProtocolHJ       = "hj"
-	ProtocolJTT808   = "jtt808"
-	ProtocolXNY32960 = "xny32960"
+	ProtocolIM1001 = "im1001"
 )

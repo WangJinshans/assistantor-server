@@ -72,11 +72,11 @@ func (s *GrpcServer) sendCommand(arg *pb.SendParameter) (result *pb.SendResult) 
 }
 
 // StartCommandServer start a command port on gateway process to receive downstream command
-func StartCommandServer(port int, underlyingServer network.Server, redisClient *redis.Client) error {
+func StartCommandServer(port int, underlyingServer network.Server, redisClient *redis.Client) {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterSendServer(s, &GrpcServer{
@@ -89,9 +89,8 @@ func StartCommandServer(port int, underlyingServer network.Server, redisClient *
 	err = s.Serve(lis)
 	if err != nil {
 		log.Error().Msgf("start grpc server error: %v", err.Error())
-		return err
+		panic(err)
 	}
-	return nil
 }
 
 // StartEpollCommandServer start a command port on gateway process to receive downstream command with epoll server

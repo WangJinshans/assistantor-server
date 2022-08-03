@@ -9,7 +9,7 @@ const (
 	CommandKey              = "down_command_status"
 	EmptyConnection         = "empty connection"
 	ParameterError          = "extra parameter error" // 附加参数错误
-	DefaultError            = "default error" // 默认错误
+	DefaultError            = "default error"         // 默认错误
 )
 
 const (
@@ -21,4 +21,9 @@ const (
 	PlatFormXev    = "xev"
 	PlatFormXevCar = "xev_car" // xev 车端
 	PlatFormJmc    = "jmc"     // 江玲
+)
+
+const (
+	LoginEvent  = 1 // 登录事件
+	LogoutEvent = 2 // 登出事件
 )

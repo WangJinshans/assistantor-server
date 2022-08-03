@@ -48,9 +48,6 @@ func NewCreatorWithProtocol(vin string, protocol string) (c *Creator) {
 }
 
 func (c *Creator) wrapPayload(payload []byte) []byte {
-	if c.protocol == ProtocolGB17691 {
-		return c.wrapPaylodGB17691(payload)
-	}
 
 	var bs []byte
 	bs = append(bs, c.commandFlag...)

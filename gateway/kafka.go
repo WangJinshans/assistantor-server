@@ -3,43 +3,44 @@ package gateway
 import (
 	"github.com/rs/zerolog/log"
 	confluentKafka "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
-	"math/rand"
+	"strings"
 )
 
-// MakeProducer make a kafak producer
-func MakeProducer(kafkaBrokers []string, producerBufferSize int) *confluentKafka.Producer {
-	log.Info().Msgf("broker list: %v", kafkaBrokers)
-	randomIndex := rand.Intn(len(kafkaBrokers))
-	pick := kafkaBrokers[randomIndex]
-	log.Info().Msgf("connect to kafka at %v", pick)
-	producer, err := confluentKafka.NewProducer(&confluentKafka.ConfigMap{
-		"bootstrap.servers":            pick,
+func NewKafkaProducer(kafkaBrokers []string) (producer *confluentKafka.Producer, err error) {
+	var kafkaBrokerString string
+	if len(kafkaBrokers) == 1 {
+		kafkaBrokerString = kafkaBrokers[0]
+	} else {
+		kafkaBrokerString = strings.Join(kafkaBrokers, ",")
+	}
+	log.Info().Msgf("kafkaBrokerString is: %s", kafkaBrokerString)
+	producer, err = confluentKafka.NewProducer(&confluentKafka.ConfigMap{
+		"bootstrap.servers":            kafkaBrokerString,
 		"security.protocol":            "plaintext",
-		//"ssl.ca.location":              "./ca-cert",
-		"queue.buffering.max.messages": producerBufferSize,
-		"go.events.channel.size":       producerBufferSize,
+		"queue.buffering.max.messages": 200000,
 		"go.batch.producer":            true,
-		"go.produce.channel.size":      producerBufferSize,
+		"linger.ms":                    1000,
+		"request.timeout.ms":           100000,
+		"compression.type":             "snappy",
+		"retries":                      20,
+		"retry.backoff.ms":             1000,
 	})
 	if err != nil {
 		panic(err)
 	}
+	log.Info().Msgf("Connect to kafka at %v", kafkaBrokers)
 
-	return producer
-}
-
-func monitorProducer(producer *confluentKafka.Producer) {
-	for range producer.Events() {
-	}
-	// for e := range producer.Events() {
-		// switch ev := e.(type) {
-		// case *confluentKafka.Message:
-		// 	if ev.TopicPartition.Error != nil {
-		// 		log.Error().Msgf("ev: %v", ev.TopicPartition.Error)
-		// 		errorPackages.Observe(bufferSizePerVIN)
-		// 	} else {
-		// 		producedPackages.Observe(bufferSizePerVIN)
-		// 	}
-		// }
-	// }
+	go func() {
+		for e := range producer.Events() {
+			switch ev := e.(type) {
+			case *confluentKafka.Message:
+				if ev.TopicPartition.Error != nil {
+					log.Error().Msgf("ev: %v", ev.TopicPartition.Error)
+				} else {
+					producedPackages.Observe(1)
+				}
+			}
+		}
+	}()
+	return
 }

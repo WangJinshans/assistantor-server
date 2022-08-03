@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"encoding/json"
 	"github.com/rs/zerolog/log"
+	"time"
 
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
@@ -10,6 +12,23 @@ const (
 	producerThreshold = 150000
 	flushTimeout      = 3 * 1000
 )
+
+func FormatErrorMsg(source, content, ip, errorMessage string) []byte {
+	t := time.Now().Unix()
+
+	data := map[string]interface{}{
+		"source":        source,
+		"message":       content,
+		"ip":            ip,
+		"error_message": errorMessage,
+		"create_time":   t,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Error().Msg(err.Error())
+	}
+	return msg
+}
 
 // Produce produce package to kafka
 func Produce(producer *kafka.Producer, topic string, message []byte) error {
